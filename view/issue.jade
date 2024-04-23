@@ -1,0 +1,204 @@
+doctype html
+html(lang="en")
+    head
+        meta(charset="UTF-8")
+        meta(name="viewport" content="width=device-width, initial-scale=1.0")
+        title Issue List
+        link(href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet")
+    body
+        .container
+            h2 Issue List
+            .input-group.mb-3
+                input.form-control(type="text" id="searchInput" placeholder="Search by name" aria-label="Search" aria-describedby="searchButton")
+                .input-group-append
+                    button.btn.btn-outline-secondary(type="button" id="searchButton") Search
+            button.flex.flex-end.btn.btn-primary(id="createIssueButton" data-toggle="modal" data-target="#createIssueModal") Create Issue
+
+            table#asset_table.table.table-striped
+                thead
+                    tr
+                        th(scope="col") S.No
+                        th(scope="col") Asset ID
+                        th(scope="col") Employ
+                        th(scope="col") Model
+                        th(scope="col") Type
+                        th(scope="col") Make
+                        th(scope="col") Status
+                        //- th(scope="col") Actions // New column for action buttons
+                tbody
+
+        script(src="https://code.jquery.com/jquery-3.5.1.slim.min.js")
+        script(src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js")
+        script(src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js")
+            // Modal for editing
+            // Modal
+        .modal.fade#createIssueModal(tabindex="-1" role="dialog" aria-labelledby="createIssueModalLabel" aria-hidden="true")
+            .modal-dialog(role="document")
+                .modal-content
+                    .modal-header
+                        h5.modal-title#createIssueModalLabel Create Issue
+                        button.close(type="button" data-dismiss="modal" aria-label="Close")
+                            span(aria-hidden="true") ×
+                    .modal-body
+                        .form-group
+                            label(for="assetIdDropdown") Asset ID
+                            select.form-control(name="assetIdDropdown" id="assetIdDropdown" required)
+
+                        .form-group
+                            label(for="employeeIdDropdown") Employee ID
+                            select.form-control(name="employeeid" id="employeeid" required)
+
+                        .form-group
+                            label(for="actionDropsaveChangesdown") Action
+                            select#actionDropdown.form-control
+                                //- Options for different actions
+                                option(value="Upgrade") Upgrade
+                                option(value="Repair") Repair
+                                option(value="Resignation") Resignation
+                                option(value="Issued") Issued
+
+                    .modal-footer
+                        button.btn.btn-secondary(type="button" data-dismiss="modal") Close
+                        button.btn.btn-primary(type="button" onclick="saveChanges()") Save Changes
+        script.
+            var masterData
+
+            function fetchEmployeList() {
+                fetch('http://localhost:4000/api/listall',{
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data?.data,"000000000000");
+                        const select = document.getElementById('employeeid');
+                        select.innerHTML = ''; // Clear existing options
+                        data?.data.forEach(category => {
+                            const option = document.createElement('option');
+                            option.value = category.uuid;
+                            option.textContent = category.username;
+                            select.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching categories:', error));
+            }
+            document.addEventListener('DOMContentLoaded', fetchEmployeList());
+            document.addEventListener('DOMContentLoaded', function() {
+                fetchAssets();
+
+                document.getElementById('searchButton').addEventListener('click', function() {
+                    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                    filterAssets(searchTerm);
+                });
+
+                document.addEventListener('click', function(event) {
+                    if (event.target.classList.contains('edit-button')) {
+                        const assetId = event.target.dataset.assetId;
+                        openEditModal(assetId);
+                    }
+                });
+            });
+
+
+            function fetchAssets() {
+                fetch('http://localhost:4000/api/listissue', {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        masterData=data?.data
+                        console.log(data?.data); 
+                        populateTable(data?.data);
+                    })
+                    .catch(error => console.error('Error fetching assets:', error));
+            }
+
+
+            function populateTable(assets) {
+                const tableBody = document.querySelector('#asset_table tbody');
+                tableBody.innerHTML = ''; // Clear existing table rows
+                assets.forEach((asset,i) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${i+1}</td>
+
+                        <td>${asset?.assetMaster?.asset_id}</td>
+                        <td>${asset?.employee?.username}</td>
+                        <td>${asset?.assetMaster?.model}</td>
+                        <td>${asset?.assetMaster?.assetType?.Categorytype}</td>
+                        <td>${asset?.assetMaster?.make}</td>
+                        <td>${asset?.assetMaster?.status}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+
+            function filterAssets(searchTerm) {
+                const assets = document.querySelectorAll('#asset_table tbody tr');
+                assets.forEach(asset => {
+                    const model = asset.querySelector('td:nth-child(3)').textContent.toLowerCase();
+                    if (model.includes(searchTerm)) {
+                        asset.style.display = 'table-row';
+                    } else {
+                        asset.style.display = 'none';
+                    }
+                });
+            }
+
+            function fetchCategories() {
+                fetch('http://localhost:4000/api/listassetMaster', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data?.data,"------");
+                        const select = document.getElementById('assetIdDropdown');
+                        select.innerHTML = ''; // Clear existing options
+                        data?.data.forEach(assetMaster => {
+                            const option = document.createElement('option');
+                            option.value = assetMaster.uuid;
+                            option.textContent = assetMaster.asset_id;
+                            select.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching categories:', error));
+            }
+
+            document.addEventListener('DOMContentLoaded', fetchCategories());
+            function saveChanges() {
+                const assetId = document.getElementById('assetIdDropdown').value;
+                const employeeId = document.getElementById('employeeid').value;
+                const action = document.getElementById('actionDropdown').value;
+
+                const data = {
+                    asset_id: assetId,
+                    employee_id: employeeId,
+                    action: action
+                };
+
+                fetch('http://localhost:4000/api/createAssetIssue', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    console.log('Issue created successfully');
+                    $('#createIssueModal').modal('hide');
+                })
+                .catch(error => {
+                    console.error('Error creating issue:', error);
+                });
+            }
+                //- function edit{
+                //-     console.log("kjhugytfgyhujiok")
+                //- }
